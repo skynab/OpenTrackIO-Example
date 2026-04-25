@@ -11,6 +11,8 @@ python-client/   opentrackio_client.py          Python CLI consumer
                  opentrackio_client_ui.py       Python tkinter dashboard consumer
 cpp-server/      opentrackio_server.cpp         Cross-platform C++17 producer
                  CMakeLists.txt                 CMake build script
+cpp-client/      opentrackio_client.cpp         Cross-platform C++17 consumer (TUI)
+                 CMakeLists.txt                 CMake build script
 ```
 
 The server streams OpenTrackIO samples over UDP. Each datagram is a
@@ -270,6 +272,85 @@ Usage is identical to the Python server:
 ./opentrackio_server --source 1 --rate 60
 ```
 
+## C++ client (cross-platform terminal dashboard)
+
+`cpp-client/opentrackio_client.cpp` is a C++17 consumer with a
+self-contained VT100/ANSI dashboard — same "single .cpp file, no
+third-party deps" philosophy as the C++ server. Builds on Linux,
+macOS, and Windows Terminal / Win10+ conhost (it explicitly enables
+virtual-terminal processing on Windows and switches the output code
+page to UTF-8).
+
+The dashboard shows live status (packet rate, sequence, bad-checksum
+counter), the resolved subject identity from `static.camera`,
+auto-scaled rolling sparklines for camera position (X/Y/Z) and
+rotation (pan/tilt/roll), percentage bars for the focus / iris / zoom
+encoders, derived lens parameters (focal length, focus distance, fStop,
+entrance pupil), and the tracker block (recording / slate / status).
+
+Build with CMake:
+
+```bash
+cd cpp-client
+cmake -B build && cmake --build build --config Release
+```
+
+Or directly:
+
+```bash
+cd cpp-client
+
+# Linux / macOS
+c++ -std=c++17 -O2 -o opentrackio_client opentrackio_client.cpp
+
+# Windows (MSVC developer prompt)
+cl /std:c++17 /O2 opentrackio_client.cpp ws2_32.lib
+```
+
+Usage mirrors the Python client:
+
+```bash
+./opentrackio_client --unicast --port 55555         # localhost loopback
+./opentrackio_client --source 1                     # multicast group
+./opentrackio_client --source 1 --print             # CLI lines, no dashboard
+./opentrackio_client --unicast --raw                # dump JSON payloads
+```
+
+Press `Ctrl+C` to quit; the dashboard restores your terminal state on exit.
+
+Sample frame:
+
+```
+╔════════════════════════════════════════════════════════════════════════════════════════╗
+║ OpenTrackIO Client     live   30.1 Hz   pkts 39   bad-cksum 0                          ║
+╠════════════════════════════════════════════════════════════════════════════════════════╣
+║ Subject  : SineCam                      Camera : OpenTrackIO-SineCam / Demo-1          ║
+║ Timecode : 00:00:01:23           Source : bc658c58-f810...                             ║
+║ Listen   : unicast 0.0.0.0:55555            Sample : c6af6798-93e9...                  ║
+╠════════════════════════════════════════════════════════════════════════════════════════╣
+║ Position (m)                                                                           ║
+║ X        +0.897                    ▁▁▁▁▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇█                 ║
+║ Y        +1.802                ▇▇▇▇█▇▇▇▇▇▇▇▇▇▇▇▆▆▆▆▆▅▅▅▅▄▄▄▃▃▃▂▂▂▁▁                    ║
+║ Z        +2.570                █▇▇▇▇▇▇▇▇▆▆▆▆▆▆▅▅▅▅▅▄▄▄▄▃▃▃▃▂▂▂▂▁▁▁                     ║
+╠════════════════════════════════════════════════════════════════════════════════════════╣
+║ Rotation (deg)                                                                         ║
+║ pan     +23.752                     ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▆▆▆▆▆▇▇▇▇▇█                 ║
+║ tilt    +18.113                  ▁▂▃▃▄▄▅▅▆▆▆▇▇▇▇▇▇█▇▇▇▇▇▇▆▆▆▅▅▄▄▃▂▂▁                   ║
+║ roll     +9.989                   ▁▁▁▂▂▂▃▃▃▃▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇▇▇▇▇█                 ║
+╠════════════════════════════════════════════════════════════════════════════════════════╣
+║ Lens encoders                                                                          ║
+║ focus   0.90  █████████████████████████████░░░   90%                                   ║
+║ iris    0.79  █████████████████████████░░░░░░░   79%                                   ║
+║ zoom    0.93  ██████████████████████████████░░   93%                                   ║
+╠════════════════════════════════════════════════════════════════════════════════════════╣
+║ Lens parameters                                                                        ║
+║   focal length    :   49.93 mm     focus distance :  4.985 m                           ║
+║   fStop           :  T  5.554      entrance pupil :  0.079 m                           ║
+╠════════════════════════════════════════════════════════════════════════════════════════╣
+║ Tracker  : recording=false  slate="Demo"  status="Optical Good"                        ║
+╚════════════════════════════════════════════════════════════════════════════════════════╝
+```
+
 ## Files
 
 | Path | Purpose |
@@ -279,4 +360,6 @@ Usage is identical to the Python server:
 | `python-client/opentrackio_client_ui.py`   | Python consumer (tkinter dashboard) with live readouts, encoder bars, rolling graphs. |
 | `cpp-server/opentrackio_server.cpp`        | Cross-platform C++17 producer (no deps). |
 | `cpp-server/CMakeLists.txt`                | CMake build script for the C++ server. |
+| `cpp-client/opentrackio_client.cpp`        | Cross-platform C++17 consumer with VT100 terminal dashboard (no deps). |
+| `cpp-client/CMakeLists.txt`                | CMake build script for the C++ client. |
 | `README.md`                                | This document. |
